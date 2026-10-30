@@ -190,7 +190,9 @@ namespace WinMemoryCleaner
         {
             try
             {
-                return (Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly()).GetName().Version ?? new Version(0, 0, 0, 0);
+                // Use the declaring assembly rather than the entry assembly. The entry assembly is
+                // the test runner when the code runs under a test host, which reports a wrong version.
+                return typeof(Helper).Assembly.GetName().Version ?? new Version(0, 0, 0, 0);
             }
             catch
             {
@@ -220,6 +222,18 @@ namespace WinMemoryCleaner
 
                 return true;
             }
+        }
+
+        /// <summary>
+        /// Gets the number of bytes released between two available memory readings.
+        /// A negative difference (the system allocated memory while optimizing) is reported as zero.
+        /// </summary>
+        /// <param name="before">The available memory before the optimization</param>
+        /// <param name="after">The available memory after the optimization</param>
+        /// <returns>The released bytes</returns>
+        public static long GetReleasedBytes(long before, long after)
+        {
+            return after > before ? after - before : 0;
         }
 
         /// <summary>

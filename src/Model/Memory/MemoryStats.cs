@@ -1,4 +1,6 @@
-﻿namespace WinMemoryCleaner
+﻿using System;
+
+namespace WinMemoryCleaner
 {
     /// <summary>
     /// Memory Stats
@@ -15,12 +17,18 @@
         {
             Free = new MemorySize(free);
             Total = new MemorySize(total);
-            Used = new MemorySize(total >= free ? total - free : free - total);
+
+            var usedBytes = total >= free ? total - free : free - total;
+
+            Used = new MemorySize(usedBytes);
 
             if (used == null)
-                used = Used.Value > 0 && Total.Value > 0 ? (int)(Used.Value * 100 / Total.Value) : 0;
+                used = total > 0 ? (int)(usedBytes * 100L / total) : 0;
 
-            Free.Percentage = (int)(100 - used);
+            // Guard against out-of-range values coming from the operating system
+            used = Math.Max(0, Math.Min(100, (int)used));
+
+            Free.Percentage = 100 - (int)used;
             Used.Percentage = (int)used;
         }
 

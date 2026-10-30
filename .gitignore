@@ -47,6 +47,7 @@ Generated\ Files/
 # NUnit
 *.VisualState.xml
 TestResult.xml
+TestResults.xml
 nunit-*.xml
 
 # Build Results of an ATL Project
@@ -399,3 +400,5 @@ FodyWeavers.xsd
 
 # Github pages
 docs/package-lock.json
+
+/dist/

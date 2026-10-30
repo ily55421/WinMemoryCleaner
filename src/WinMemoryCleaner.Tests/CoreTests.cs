@@ -3,7 +3,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 
-#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+#pragma warning disable 1591 // Missing XML comment for publicly visible type or member
 
 namespace WinMemoryCleaner.Test
 {
@@ -651,6 +651,53 @@ namespace WinMemoryCleaner.Test
                 Assert.IsNotNull(result);
                 Assert.AreEqual(0, result.Key);
             }
+
+            [Test]
+            public void ToMemoryUnit_WithExactGigabyte_ReturnsExactlyOneGigabyte()
+            {
+                var result = 1073741824L.ToMemoryUnit();
+
+                Assert.AreEqual(Enums.Memory.Unit.GB, result.Value);
+                Assert.AreEqual(1d, result.Key, 0.000001d);
+            }
+
+            [Test]
+            public void ToMemoryUnit_WithExactTerabyte_ReturnsExactlyOneTerabyte()
+            {
+                // Math.Log based implementations returned 1023.99999999907 GB for this value
+                var result = 1099511627776L.ToMemoryUnit();
+
+                Assert.AreEqual(Enums.Memory.Unit.TB, result.Value);
+                Assert.AreEqual(1d, result.Key, 0.000001d);
+            }
+
+            [Test]
+            public void ToMemoryUnit_WithExactPetabyte_ReturnsExactlyOnePetabyte()
+            {
+                var result = 1125899906842624L.ToMemoryUnit();
+
+                Assert.AreEqual(Enums.Memory.Unit.PB, result.Value);
+                Assert.AreEqual(1d, result.Key, 0.000001d);
+            }
+
+            [Test]
+            public void ToMemoryUnit_WithExactExabyte_ReturnsExactlyOneExabyte()
+            {
+                var result = 1152921504606846976L.ToMemoryUnit();
+
+                Assert.AreEqual(Enums.Memory.Unit.EB, result.Value);
+                Assert.AreEqual(1d, result.Key, 0.000001d);
+            }
+
+            [Test]
+            public void ToMemoryUnit_WithValueJustBelowExactUnit_UsesPreviousUnit()
+            {
+                // 1 TB - 1 byte is still reported in GB, because it is below the 1 TB boundary
+                var result = 1099511627775L.ToMemoryUnit();
+
+                Assert.AreEqual(Enums.Memory.Unit.GB, result.Value);
+                Assert.AreEqual(1024d, result.Key, 0.000001d);
+            }
         }
 
         #endregion
@@ -716,6 +763,24 @@ namespace WinMemoryCleaner.Test
 
                 Assert.IsNotNull(path);
                 Assert.IsFalse(string.IsNullOrEmpty(path));
+            }
+
+            [Test]
+            public void GetReleasedBytes_WithIncreasedAvailableMemory_ReturnsDifference()
+            {
+                Assert.AreEqual(512L, Helper.GetReleasedBytes(1024L, 1536L));
+            }
+
+            [Test]
+            public void GetReleasedBytes_WithUnchangedAvailableMemory_ReturnsZero()
+            {
+                Assert.AreEqual(0L, Helper.GetReleasedBytes(1024L, 1024L));
+            }
+
+            [Test]
+            public void GetReleasedBytes_WithDecreasedAvailableMemory_ReturnsZero()
+            {
+                Assert.AreEqual(0L, Helper.GetReleasedBytes(1536L, 1024L));
             }
 
             [Test]
@@ -982,6 +1047,54 @@ namespace WinMemoryCleaner.Test
             {
                 Assert.DoesNotThrow(() => Logger.Warning("Test warning message"));
             }
+
+            [Test]
+            public void LogFilePath_HasLogFileExtension()
+            {
+                var path = Logger.LogFilePath;
+
+                Assert.IsNotNull(path);
+                Assert.IsTrue(path.EndsWith(Constants.App.Name + ".log", StringComparison.OrdinalIgnoreCase));
+            }
+
+            [Test]
+            public void Information_IsWrittenToLogFile()
+            {
+                var marker = "logger-test-" + Guid.NewGuid().ToString("N");
+
+                // The level setter only accepts single levels, and Debug equals the full mask
+                Logger.Level = Enums.Log.Levels.Debug;
+                Logger.Information(marker);
+
+                var path = Logger.LogFilePath;
+
+                if (!File.Exists(path))
+                    Assert.Ignore("The log file is not available in this environment.");
+
+                StringAssert.Contains(marker, File.ReadAllText(path));
+            }
+
+            [Test]
+            public void DisabledLevel_IsNotWrittenToLogFile()
+            {
+                var marker = "logger-debug-" + Guid.NewGuid().ToString("N");
+                var path = Logger.LogFilePath;
+
+                try
+                {
+                    Logger.Level = Enums.Log.Levels.Error;
+                    Logger.Debug(marker);
+                }
+                finally
+                {
+                    Logger.Level = Enums.Log.Levels.Debug;
+                }
+
+                if (!File.Exists(path))
+                    Assert.Ignore("The log file is not available in this environment.");
+
+                StringAssert.DoesNotContain(marker, File.ReadAllText(path));
+            }
         }
 
         #endregion
@@ -1185,6 +1298,18 @@ namespace WinMemoryCleaner.Test
             }
 
             [Test]
+            public void SaveDebounced_DoesNotThrow()
+            {
+                Assert.DoesNotThrow(() => Settings.SaveDebounced());
+            }
+
+            [Test]
+            public void Flush_DoesNotThrow()
+            {
+                Assert.DoesNotThrow(() => Settings.Flush());
+            }
+
+            [Test]
             public void ShowOptimizationNotifications_CanBeAccessed()
             {
                 Assert.DoesNotThrow(() => { var show = Settings.ShowOptimizationNotifications; });
@@ -1352,4 +1477,4 @@ namespace WinMemoryCleaner.Test
     }
 }
 
-#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
+#pragma warning restore 1591 // Missing XML comment for publicly visible type or member

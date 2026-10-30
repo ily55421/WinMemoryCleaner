@@ -84,6 +84,28 @@ namespace WinMemoryCleaner
         }
 
         /// <summary>
+        /// Gets a value indicating whether the process is running with administrator rights.
+        /// </summary>
+        /// <value>
+        ///   <c>true</c> if the process is elevated; otherwise, <c>false</c>.
+        /// </value>
+        private static bool IsElevated
+        {
+            get
+            {
+                try
+                {
+                    using (var identity = WindowsIdentity.GetCurrent())
+                        return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+
+        /// <summary>
         /// App path
         /// </summary>
         public static string Path { get; private set; }
@@ -115,6 +137,16 @@ namespace WinMemoryCleaner
             if (disposing)
             {
                 Logger.Dispose();
+
+                try
+                {
+                    // Flush the pending (debounced) settings so the last change is not lost
+                    Settings.Flush();
+                }
+                catch
+                {
+                    // ignored
+                }
 
                 try
                 {
@@ -174,6 +206,16 @@ namespace WinMemoryCleaner
             // App properties
             Path = Helper.GetExecutablePath();
             Version = Helper.GetVersion();
+
+            // Environment information to make a copied log file self explanatory
+            Logger.Information(string.Format(
+                CultureInfo.InvariantCulture,
+                "App initialized. Version={0} OS={1} 64Bit={2} Elevated={3} LogFile={4}",
+                Version,
+                Environment.OSVersion.VersionString,
+                Environment.Is64BitOperatingSystem,
+                IsElevated,
+                Logger.LogFilePath));
 
             // Check if app is already running
             bool createdNew;
@@ -775,7 +817,6 @@ namespace WinMemoryCleaner
             bool priorityBoostEnabled;
             ProcessPriorityClass processPriorityClass;
             ThreadPriority threadPriority;
-            ThreadPriorityLevel threadPriorityLevel;
 
             switch (priority)
             {
@@ -783,21 +824,18 @@ namespace WinMemoryCleaner
                     priorityBoostEnabled = false;
                     processPriorityClass = ProcessPriorityClass.Idle;
                     threadPriority = ThreadPriority.Lowest;
-                    threadPriorityLevel = ThreadPriorityLevel.Idle;
                     break;
 
                 case Enums.Priority.Normal:
                     priorityBoostEnabled = true;
                     processPriorityClass = ProcessPriorityClass.Normal;
                     threadPriority = ThreadPriority.Normal;
-                    threadPriorityLevel = ThreadPriorityLevel.Normal;
                     break;
 
                 case Enums.Priority.High:
                     priorityBoostEnabled = true;
                     processPriorityClass = ProcessPriorityClass.High;
                     threadPriority = ThreadPriority.Highest;
-                    threadPriorityLevel = ThreadPriorityLevel.Highest;
                     break;
 
                 default:
@@ -815,6 +853,9 @@ namespace WinMemoryCleaner
 
             try
             {
+                // Only the process priority class (and the calling thread) is adjusted here.
+                // Overriding the priority of every thread starved the optimization worker and the
+                // UI thread on slow machines, making the optimization look frozen.
                 var process = Process.GetCurrentProcess();
 
                 try
@@ -833,27 +874,6 @@ namespace WinMemoryCleaner
                 catch
                 {
                     // ignored
-                }
-
-                foreach (ProcessThread thread in process.Threads)
-                {
-                    try
-                    {
-                        thread.PriorityBoostEnabled = priorityBoostEnabled;
-                    }
-                    catch
-                    {
-                        // ignored
-                    }
-
-                    try
-                    {
-                        thread.PriorityLevel = threadPriorityLevel;
-                    }
-                    catch
-                    {
-                        // ignored
-                    }
                 }
             }
             catch

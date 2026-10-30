@@ -13,23 +13,22 @@ namespace WinMemoryCleaner.Test
         /// <summary>
         /// Creates a valid MemoryStatusEx struct for testing
         /// </summary>
-        [System.CLSCompliant(false)]
         public static Structs.Windows.MemoryStatusEx CreateMemoryStatusEx
         (
-            ulong totalPhysical = 8589934592, // 8 GB
-            ulong availPhysical = 4294967296, // 4 GB
-            ulong totalPageFile = 17179869184, // 16 GB
-            ulong availPageFile = 12884901888, // 12 GB
+            long totalPhysical = 8589934592, // 8 GB
+            long availPhysical = 4294967296, // 4 GB
+            long totalPageFile = 17179869184, // 16 GB
+            long availPageFile = 12884901888, // 12 GB
             byte memoryLoad = 50
         )
         {
             return new Structs.Windows.MemoryStatusEx
             {
                 MemoryLoad = memoryLoad,
-                TotalPhys = (long)totalPhysical,
-                AvailPhys = (long)availPhysical,
-                TotalPageFile = (long)totalPageFile,
-                AvailPageFile = (long)availPageFile,
+                TotalPhys = totalPhysical,
+                AvailPhys = availPhysical,
+                TotalPageFile = totalPageFile,
+                AvailPageFile = availPageFile,
                 TotalVirtual = long.MaxValue,
                 AvailVirtual = long.MaxValue,
                 AvailExtendedVirtual = 0

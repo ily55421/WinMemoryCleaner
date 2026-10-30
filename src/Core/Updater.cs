@@ -132,7 +132,12 @@ namespace WinMemoryCleaner
         {
             try
             {
-                if (Settings.AutoUpdate && DateTimeOffset.Now.Subtract(_lastCheck).TotalHours < Constants.App.AutoUpdateInterval)
+                // The update check is skipped when the automatic update is turned off.
+                if (!Settings.AutoUpdate)
+                    return;
+
+                // Only one check per interval is performed.
+                if (DateTimeOffset.Now.Subtract(_lastCheck).TotalHours < Constants.App.AutoUpdateInterval)
                     return;
 
                 _lastCheck = DateTimeOffset.Now;

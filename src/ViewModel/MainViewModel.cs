@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -138,7 +137,10 @@ namespace WinMemoryCleaner
                     _lastAutoOptimizationByInterval = DateTimeOffset.Now;
 
                     Settings.AutoOptimizationInterval = value;
-                    Settings.Save();
+
+                    // The property is bound to a slider, so the change is raised for every step
+                    // of the drag. The registry write is debounced to a single operation.
+                    Settings.SaveDebounced();
 
                     RaisePropertyChanged();
                     RaisePropertyChanged(() => AutoOptimizationMemoryIntervalDescription);
@@ -168,7 +170,10 @@ namespace WinMemoryCleaner
                     _lastAutoOptimizationByMemoryUsage = DateTimeOffset.Now;
 
                     Settings.AutoOptimizationMemoryUsage = value;
-                    Settings.Save();
+
+                    // The property is bound to a slider, so the change is raised for every step
+                    // of the drag. The registry write is debounced to a single operation.
+                    Settings.SaveDebounced();
 
                     RaisePropertyChanged();
                     RaisePropertyChanged(() => AutoOptimizationMemoryUsageDescription);
@@ -432,7 +437,10 @@ namespace WinMemoryCleaner
                     IsBusy = true;
 
                     Settings.FontSize = value;
-                    Settings.Save();
+
+                    // The property is bound to a slider, so the change is raised for every step
+                    // of the drag. The registry write is debounced to a single operation.
+                    Settings.SaveDebounced();
 
                 if (WpfApplication.Current != null)
                 {
@@ -818,11 +826,37 @@ namespace WinMemoryCleaner
         {
             get
             {
-                var processes = new ObservableCollection<string>(Process.GetProcesses()
-                    .Where(process => process != null && !process.ProcessName.Equals(Constants.App.Name) && !Settings.ProcessExclusionList.Contains(process.ProcessName, StringComparer.OrdinalIgnoreCase))
-                    .Select(process => process.ProcessName.ToLower(Localizer.Culture).Replace(".exe", string.Empty))
-                    .Distinct()
-                    .OrderBy(name => name));
+                var names = new List<string>();
+
+                // A process can exit between the enumeration and the access to its name, so the
+                // name is resolved defensively and the process is skipped when it is gone.
+                foreach (var process in Process.GetProcesses())
+                {
+                    using (process)
+                    {
+                        string processName;
+
+                        try
+                        {
+                            processName = process.ProcessName;
+                        }
+                        catch (InvalidOperationException)
+                        {
+                            // The process exited before its name could be read
+                            continue;
+                        }
+
+                        if (processName.Equals(Constants.App.Name, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        if (Settings.ProcessExclusionList.Contains(processName, StringComparer.OrdinalIgnoreCase))
+                            continue;
+
+                        names.Add(processName.ToLower(Localizer.Culture).Replace(".exe", string.Empty));
+                    }
+                }
+
+                var processes = new ObservableCollection<string>(names.Distinct().OrderBy(name => name));
 
                 if (!processes.Contains(SelectedProcess, StringComparer.OrdinalIgnoreCase))
                     SelectedProcess = processes.FirstOrDefault();
@@ -1617,13 +1651,13 @@ namespace WinMemoryCleaner
             {
                 try
                 {
-                    // Check if it's busy
-                    if (IsBusy)
-                        continue;
-
                     // Delay
                     if (_cancellationTokenSource.Token.WaitHandle.WaitOne(60000))
                         break;
+
+                    // Check if it's busy
+                    if (IsBusy)
+                        continue;
 
                     // Update app
                     Updater.Update();
@@ -1704,6 +1738,10 @@ namespace WinMemoryCleaner
             {
                 try
                 {
+                    // Delay
+                    if (_cancellationTokenSource.Token.WaitHandle.WaitOne(5000))
+                        break;
+
                     // Check if it's busy
                     if (IsBusy)
                         continue;
@@ -1718,10 +1756,6 @@ namespace WinMemoryCleaner
 
                         NotificationService.Update(Computer.Memory, IsOptimizationRunning);
                     }
-
-                    // Delay
-                    if (_cancellationTokenSource.Token.WaitHandle.WaitOne(5000))
-                        break;
                 }
                 catch (Exception e)
                 {
@@ -1766,6 +1800,9 @@ namespace WinMemoryCleaner
 
                     _computerService.Optimize(reason, Settings.MemoryAreas);
 
+                    // Give the memory manager a moment to publish the released pages before measuring
+                    Thread.Sleep(300);
+
                     // Update memory info
                     Computer.Memory = _computerService.Memory;
                     RaisePropertyChanged(() => Computer);
@@ -1773,8 +1810,9 @@ namespace WinMemoryCleaner
                     // Notification
                     if (Settings.ShowOptimizationNotifications)
                     {
-                        var physicalReleased = (Computer.Memory.Physical.Free.Bytes > tempPhysicalAvailable ? Computer.Memory.Physical.Free.Bytes - tempPhysicalAvailable : tempPhysicalAvailable - Computer.Memory.Physical.Free.Bytes).ToMemoryUnit();
-                        var virtualReleased = (Computer.Memory.Virtual.Free.Bytes > tempVirtualAvailable ? Computer.Memory.Virtual.Free.Bytes - tempVirtualAvailable : tempVirtualAvailable - Computer.Memory.Virtual.Free.Bytes).ToMemoryUnit();
+                        // Only a positive difference is memory that was actually released
+                        var physicalReleased = Helper.GetReleasedBytes(tempPhysicalAvailable, Computer.Memory.Physical.Free.Bytes).ToMemoryUnit();
+                        var virtualReleased = Helper.GetReleasedBytes(tempVirtualAvailable, Computer.Memory.Virtual.Free.Bytes).ToMemoryUnit();
 
                         var message = Settings.ShowVirtualMemory
                             ? string.Format(Localizer.Culture, "{1}{0}{0}{2}: {3}{0}{4}: {5:0.#} {6}{0}{7}: {8:0.#} {9}", Environment.NewLine, Localizer.String.MemoryOptimized.ToUpper(Localizer.Culture), Localizer.String.Reason, reason.GetString(), Localizer.String.PhysicalMemory, physicalReleased.Key, physicalReleased.Value, Localizer.String.VirtualMemory, virtualReleased.Key, virtualReleased.Value)
@@ -1823,7 +1861,7 @@ namespace WinMemoryCleaner
 
                 OptimizationProgressStep = Localizer.String.Optimize;
                 OptimizationProgressValue = 0;
-                OptimizationProgressTotal = (byte)(new BitArray(new[] { (int)Settings.MemoryAreas }).OfType<bool>().Count(x => x) + 1);
+                OptimizationProgressTotal = ComputerService.GetOptimizationStepCount(Settings.MemoryAreas);
 
                 ThreadPool.QueueUserWorkItem(_ => Optimize(reason));
             }

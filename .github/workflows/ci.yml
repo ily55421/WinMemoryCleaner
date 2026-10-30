@@ -72,11 +72,16 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || steps.check_files.outputs.any_changed == 'true'
         shell: pwsh
         run: |
-          $testAssembly = "src\bin\Release\WinMemoryCleaner.exe"  
+          $testAssembly = "src\WinMemoryCleaner.Tests\bin\Release\WinMemoryCleaner.Tests.dll"
           $testRunner = "src\packages\NUnit.Runners.2.6.4\tools\nunit-console.exe"
           
           if (-Not (Test-Path $testRunner)) {
             Write-Host "::error::Test runner not found at $testRunner"
+            exit 1
+          }
+          
+          if (-Not (Test-Path $testAssembly)) {
+            Write-Host "::error::Test assembly not found at $testAssembly"
             exit 1
           }
           

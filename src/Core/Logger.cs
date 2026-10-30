@@ -1,5 +1,6 @@
 ﻿using Microsoft.Win32.SafeHandles;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.CompilerServices;
@@ -14,10 +15,15 @@ namespace WinMemoryCleaner
     {
         #region Fields
 
+        private const long MaxLogFileSize = 1024 * 1024; // 1 MB
+
         private static SafeFileHandle _consoleHandle;
         private static FileStream _consoleStream;
         private static StreamWriter _consoleWriter;
+        private static bool _fileDisabled;
+        private static readonly object _fileLock = new object();
         private static Enums.Log.Levels _level = Enums.Log.Levels.Debug | Enums.Log.Levels.Information | Enums.Log.Levels.Warning | Enums.Log.Levels.Error;
+        private static string _logFilePath;
 
         #endregion Fields
 
@@ -130,6 +136,26 @@ namespace WinMemoryCleaner
         private static bool IsInformationEnabled { get { return (_level & Enums.Log.Levels.Information) != 0; } }
 
         private static bool IsWarningEnabled { get { return (_level & Enums.Log.Levels.Warning) != 0; } }
+
+        /// <summary>
+        /// Gets the log file path. Empty when the log file is not available.
+        /// </summary>
+        /// <value>
+        /// The log file path.
+        /// </value>
+        public static string LogFilePath
+        {
+            get
+            {
+                lock (_fileLock)
+                {
+                    if (_logFilePath == null && !_fileDisabled)
+                        _logFilePath = ResolveLogFilePath();
+
+                    return _logFilePath ?? string.Empty;
+                }
+            }
+        }
 
         /// <summary>
         /// Sets the log level.
@@ -339,32 +365,176 @@ namespace WinMemoryCleaner
                 // Write structured JSON to Trace listeners (EventLog, etc.)
                 message = Helper.Serialize(log);
 
+                var enabled = false;
+
                 switch (log.Level)
                 {
                     case Enums.Log.Levels.Debug:
-                        if (IsDebugEnabled)
-                            Trace.WriteLine(message);
+                        enabled = IsDebugEnabled;
                         break;
 
                     case Enums.Log.Levels.Information:
-                        if (IsInformationEnabled)
-                            Trace.TraceInformation(message);
+                        enabled = IsInformationEnabled;
                         break;
 
                     case Enums.Log.Levels.Warning:
-                        if (IsWarningEnabled)
-                            Trace.TraceWarning(message);
+                        enabled = IsWarningEnabled;
                         break;
 
                     case Enums.Log.Levels.Error:
-                        if (IsErrorEnabled)
-                            Trace.TraceError(message);
+                        enabled = IsErrorEnabled;
                         break;
                 }
+
+                if (!enabled)
+                    return;
+
+                switch (log.Level)
+                {
+                    case Enums.Log.Levels.Debug:
+                        Trace.WriteLine(message);
+                        break;
+
+                    case Enums.Log.Levels.Information:
+                        Trace.TraceInformation(message);
+                        break;
+
+                    case Enums.Log.Levels.Warning:
+                        Trace.TraceWarning(message);
+                        break;
+
+                    case Enums.Log.Levels.Error:
+                        Trace.TraceError(message);
+                        break;
+                }
+
+                // One JSON object per line makes the file easy to copy and parse
+                WriteLogFile(Helper.Serialize(log, true));
             }
             catch (Exception e)
             {
                 Event(string.Format(Localizer.Culture, Localizer.String.ErrorCanNotSaveLog, log != null ? log.Message : "NULL", e.GetMessage()), EventLogEntryType.Error);
+            }
+        }
+
+        /// <summary>
+        /// Gets the log file candidates, in order of preference
+        /// </summary>
+        /// <returns>The log file candidates</returns>
+        private static IEnumerable<string> GetLogFileCandidates()
+        {
+            var fileName = Constants.App.Name + ".log";
+            string executableDirectory = null;
+
+            try
+            {
+                executableDirectory = Path.GetDirectoryName(Helper.GetExecutablePath());
+            }
+            catch
+            {
+                // ignored
+            }
+
+            if (!string.IsNullOrWhiteSpace(executableDirectory))
+                yield return Path.Combine(executableDirectory, fileName);
+
+            var sharedDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Constants.App.Name);
+
+            yield return Path.Combine(sharedDirectory, fileName);
+        }
+
+        /// <summary>
+        /// Resolves the log file path. The file is created next to the executable, or in the shared
+        /// application data folder when the executable folder is read-only.
+        /// </summary>
+        /// <returns>The log file path. Null when no candidate is writable.</returns>
+        private static string ResolveLogFilePath()
+        {
+            foreach (var path in GetLogFileCandidates())
+            {
+                try
+                {
+                    var directory = Path.GetDirectoryName(path);
+
+                    if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
+                        Directory.CreateDirectory(directory);
+
+                    using (new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite, 1, FileOptions.None))
+                    {
+                        // Only checks that the file can be opened for writing
+                    }
+
+                    return path;
+                }
+                catch
+                {
+                    // Try the next candidate
+                }
+            }
+
+            _fileDisabled = true;
+
+            return null;
+        }
+
+        /// <summary>
+        /// Renames the log file when it reached the size limit
+        /// </summary>
+        /// <param name="path">The log file path</param>
+        private static void RotateLogFile(string path)
+        {
+            try
+            {
+                var file = new FileInfo(path);
+
+                if (!file.Exists || file.Length < MaxLogFileSize)
+                    return;
+
+                var backupPath = path + ".old";
+
+                if (File.Exists(backupPath))
+                    File.Delete(backupPath);
+
+                File.Move(path, backupPath);
+            }
+            catch
+            {
+                // ignored
+            }
+        }
+
+        /// <summary>
+        /// Writes a line to the log file. The file is opened and closed per entry so it can be
+        /// copied while the app is running.
+        /// </summary>
+        /// <param name="line">The line</param>
+        private static void WriteLogFile(string line)
+        {
+            try
+            {
+                lock (_fileLock)
+                {
+                    if (_fileDisabled)
+                        return;
+
+                    var path = _logFilePath ?? ResolveLogFilePath();
+
+                    if (path == null)
+                        return;
+
+                    RotateLogFile(path);
+
+                    using (var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite, 4096, FileOptions.WriteThrough))
+                    using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
+                    {
+                        writer.WriteLine(line);
+                        writer.Flush();
+                    }
+                }
+            }
+            catch
+            {
+                _fileDisabled = true;
             }
         }
 

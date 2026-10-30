@@ -192,6 +192,12 @@ For continuous, hands-off optimization, install the application as a background 
 
 ## 🔧 Troubleshooting
 
+### 📄 Log file:
+
+Every action is written to a log file, one JSON object per line. The file is created next to the executable (`WinMemoryCleaner.log`). When that folder is read-only, it is created in `%ProgramData%\WinMemoryCleaner\WinMemoryCleaner.log` instead. The path in use is recorded in the first log entry (`LogFile=`).
+
+The file is rotated at 1 MB (`WinMemoryCleaner.log.old` keeps the previous content), so it is safe to leave it running on long-lived machines. When a memory area fails, the entry contains the native `NTSTATUS` code and the actual released memory, which is what to attach when reporting a problem.
+
 ### ⚠️ Application flagged as Malware/Virus:
 
 One of the reasons for this **false alarm** is that the application adds entries to the registry and creates a scheduled task to run at startup. Windows doesn't suggest letting applications with administrator privileges run at startup. I understand that, but this is the required method for this functionality. I apologize, but the application cannot perform a deep memory clean without administrator privileges.

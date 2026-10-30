@@ -3,7 +3,7 @@ using System;
 using System.Windows.Forms;
 using System.Windows.Input;
 
-#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+#pragma warning disable 1591 // Missing XML comment for publicly visible type or member
 
 namespace WinMemoryCleaner.Test
 {
@@ -95,6 +95,60 @@ namespace WinMemoryCleaner.Test
                 };
 
                 Assert.IsTrue(eventHandlerWasSet || !eventHandlerWasSet);
+            }
+
+            [TestCase(unchecked((int)0xC0000061), "STATUS_PRIVILEGE_NOT_HELD")]
+            [TestCase(unchecked((int)0xC0000022), "STATUS_ACCESS_DENIED")]
+            [TestCase(unchecked((int)0xC000000D), "STATUS_INVALID_PARAMETER")]
+            [TestCase(unchecked((int)0xC0000002), "STATUS_NOT_IMPLEMENTED")]
+            [TestCase(unchecked((int)0xC0000004), "STATUS_INFO_LENGTH_MISMATCH")]
+            [TestCase(unchecked((int)0xC000009A), "STATUS_INSUFFICIENT_RESOURCES")]
+            public void GetNtStatusMessage_KnownStatus_ReturnsDescription(int status, string expectedDescription)
+            {
+                StringAssert.Contains(expectedDescription, ComputerService.GetNtStatusMessage(status));
+            }
+
+            [Test]
+            public void GetNtStatusMessage_UnknownStatus_ReturnsHexCode()
+            {
+                StringAssert.Contains("0x00001234", ComputerService.GetNtStatusMessage(0x1234));
+            }
+
+            [Test]
+            public void GetNtStatusMessage_Success_ReturnsHexCode()
+            {
+                Assert.IsNotNull(ComputerService.GetNtStatusMessage(Constants.Windows.SystemErrorCode.ErrorSuccess));
+            }
+
+            [Test]
+            public void GetOptimizationStepCount_WithDefaultAreas_MatchesTheNumberOfProgressEvents()
+            {
+                // The default configuration optimizes 7 memory areas plus the garbage collector
+                var areas = Enums.Memory.Areas.CombinedPageList |
+                            Enums.Memory.Areas.ModifiedFileCache |
+                            Enums.Memory.Areas.ModifiedPageList |
+                            Enums.Memory.Areas.RegistryCache |
+                            Enums.Memory.Areas.StandbyList |
+                            Enums.Memory.Areas.SystemFileCache |
+                            Enums.Memory.Areas.WorkingSet;
+
+                Assert.AreEqual(8, ComputerService.GetOptimizationStepCount(areas));
+            }
+
+            [Test]
+            public void GetOptimizationStepCount_WithStandbyListVariants_CountsThemAsOneStep()
+            {
+                // The standby list is optimized as a single step regardless of the priority variant.
+                // Counting the bits produced a total that the optimizer never reached (66%).
+                var areas = Enums.Memory.Areas.StandbyList | Enums.Memory.Areas.StandbyListLowPriority;
+
+                Assert.AreEqual(2, ComputerService.GetOptimizationStepCount(areas));
+            }
+
+            [Test]
+            public void GetOptimizationStepCount_WithNoAreas_ReturnsOnlyTheGarbageCollectorStep()
+            {
+                Assert.AreEqual(1, ComputerService.GetOptimizationStepCount(Enums.Memory.Areas.None));
             }
         }
 
@@ -352,4 +406,4 @@ namespace WinMemoryCleaner.Test
     }
 }
 
-#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
+#pragma warning restore 1591 // Missing XML comment for publicly visible type or member

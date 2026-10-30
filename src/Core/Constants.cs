@@ -1,6 +1,6 @@
 ﻿using System;
 
-#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+#pragma warning disable 1591 // Missing XML comment for publicly visible type or member
 
 namespace WinMemoryCleaner
 {
@@ -16,7 +16,6 @@ namespace WinMemoryCleaner
             public const string EmbeddedResourcePath = "WinMemoryCleaner.Resources.";
             public const string EmbeddedResourcePathExtension = ".json";
             public const string Id = "C7F29A45-8B3E-4D2F-9A1C-5E7B2D4F8C6A";
-            public const string KeyFile = "WinMemoryCleaner.snk";
             public const string License = "GPL-3.0";
             public const string LocalizationResourcePath = EmbeddedResourcePath + "Localization.";
             public const string Name = "WinMemoryCleaner";
@@ -163,6 +162,7 @@ namespace WinMemoryCleaner
             {
                 public const int SystemCombinePhysicalMemoryInformation = 130; // 0x82
                 public const int SystemFileCacheInformation = 21; // 0x15
+                public const int SystemFileCacheInformationEx = 81; // 0x51 - same as SystemFileCacheInformation, used as fallback on Windows 8+
                 public const int SystemMemoryListInformation = 80; // 0x50
                 public const int SystemRegistryReconciliationInformation = 155; // 0x9B
             }
@@ -174,8 +174,14 @@ namespace WinMemoryCleaner
                 public const int MemoryPurgeLowPriorityStandbyList = 5;
                 public const int MemoryPurgeStandbyList = 4;
             }
+
+            public static class TokenAccess
+            {
+                public const int AdjustPrivileges = 32; // 0x0020 - TOKEN_ADJUST_PRIVILEGES
+                public const int Query = 8; // 0x0008 - TOKEN_QUERY
+            }
         }
     }
 }
 
-#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
+#pragma warning restore 1591 // Missing XML comment for publicly visible type or member

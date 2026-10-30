@@ -3,42 +3,50 @@ using System.Linq;
 
 namespace WinMemoryCleaner
 {
-    /// <summary>  
+    /// <summary>
     /// Log Optimization Data
-    /// </summary>  
+    /// </summary>
     public class LogOptimizationData : ILogData, IJsonSerializable
     {
-        /// <summary>  
-        /// Initializes a new instance of the <see cref="LogOptimizationData" /> class.  
-        /// </summary>  
+        /// <summary>
+        /// Initializes a new instance of the <see cref="LogOptimizationData" /> class.
+        /// </summary>
         public LogOptimizationData()
         {
             MemoryAreas = new List<LogOptimizationDataMemoryArea>();
         }
 
-        /// <summary>  
-        /// Gets or sets the duration.  
-        /// </summary>  
-        /// <value>  
-        /// The duration.  
-        /// </value>  
+        /// <summary>
+        /// Gets or sets the duration.
+        /// </summary>
+        /// <value>
+        /// The duration.
+        /// </value>
         public string Duration { get; set; }
 
-        /// <summary>  
-        /// Gets or sets the memory.  
-        /// </summary>  
-        /// <value>  
-        /// The memory.  
-        /// </value>  
+        /// <summary>
+        /// Gets or sets the memory.
+        /// </summary>
+        /// <value>
+        /// The memory.
+        /// </value>
         public List<LogOptimizationDataMemoryArea> MemoryAreas { get; private set; }
 
-        /// <summary>  
-        /// Gets or sets the reason.  
-        /// </summary>  
-        /// <value>  
-        /// The reason.  
-        /// </value>  
+        /// <summary>
+        /// Gets or sets the reason.
+        /// </summary>
+        /// <value>
+        /// The reason.
+        /// </value>
         public string Reason { get; set; }
+
+        /// <summary>
+        /// Gets or sets the released physical memory.
+        /// </summary>
+        /// <value>
+        /// The released physical memory.
+        /// </value>
+        public string Released { get; set; }
 
         /// <summary>
         /// Converts the log optimization data to a JSON-serializable object.
@@ -57,6 +65,7 @@ namespace WinMemoryCleaner
             {
                 reason = Reason,
                 duration = Duration,
+                released = Released,
                 memoryAreas
             };
         }

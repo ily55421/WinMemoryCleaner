@@ -1,3 +1,22 @@
+### 3.0.9
+
+**2026-10-30**
+
+- Fixed memory not being released on Windows installations where the required privileges are unavailable (hardened group policy, security products, non-elevated startup). The optimization now falls back to process-by-process working set trimming and to alternative system calls instead of failing silently
+- Fixed the optimization report showing memory as released when the available memory did not increase
+- Fixed the memory usage percentage being calculated from values that were scaled to different units (for example 10000% instead of 9% when the used memory was expressed in GB and the total in TB)
+- Fixed the optimization progress bar never reaching 100% when the standby list was configured with both priority variants
+- Fixed the automatic update being downloaded even when the automatic update was turned off
+- Fixed the CPU usage reaching 100% while the application was busy, caused by a loop that skipped its delay
+- Fixed a crash when a process exited while the process list was being read
+- Improved the log to include the actual released memory and the native NTSTATUS code when a memory area fails (previously a meaningless Win32 error was logged)
+- Improved privilege handling to detect privileges that are not assigned to the process token
+- Improved optimization stability on slow machines: the app no longer drops the priority of every thread in the process
+- Improved the responsiveness of the language selection by caching the available languages
+- Improved the performance of the settings by writing them to the registry once instead of on every step of a slider drag
+- Removed the unit tests and the NUnit dependency from the released executable (the executable is about 20% smaller and no longer references a test framework)
+- Added a log file (`WinMemoryCleaner.log` next to the executable, rotated at 1 MB) with one JSON object per line, so the diagnostics can be copied from the affected machine
+
 ### 3.0.8
 
 **2025-12-13**

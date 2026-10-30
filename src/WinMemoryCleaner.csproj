@@ -50,9 +50,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RunCodeAnalysis>false</RunCodeAnalysis>
     <CodeAnalysisIgnoreGeneratedCode>true</CodeAnalysisIgnoreGeneratedCode>
-    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
-    <NoWarn>
-    </NoWarn>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -66,8 +63,6 @@
     <Prefer32Bit>false</Prefer32Bit>
     <DocumentationFile>bin\Release\WinMemoryCleaner.xml</DocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
-    <NoWarn>CS3001, CS3003</NoWarn>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>Resources\Images\win-memory-cleaner.ico</ApplicationIcon>
@@ -158,15 +153,6 @@
     <Compile Include="Service\ComputerService.cs" />
     <Compile Include="Service\HotkeyService.cs" />
     <Compile Include="Service\NotificationService.cs" />
-    <Compile Include="Test\CommandTests.cs" />
-    <Compile Include="Test\ConverterTests.cs" />
-    <Compile Include="Test\CoreTests.cs" />
-    <Compile Include="Test\IntegrationTests.cs" />
-    <Compile Include="Test\Mocker.cs" />
-    <Compile Include="Test\ModelTests.cs" />
-    <Compile Include="Test\ServiceTests.cs" />
-    <Compile Include="Test\TestCleanup.cs" />
-    <Compile Include="Test\ViewModelTests.cs" />
     <Compile Include="View\Base\View.cs" />
     <Compile Include="View\Control\TrayIconContextMenuControl.cs">
       <SubType>Component</SubType>
@@ -248,9 +234,6 @@
     <Reference Include="System.Xaml" />
     <Reference Include="System.Xml" />
     <Reference Include="WindowsBase" />
-    <Reference Include="nunit.framework, Version=2.6.4.14350, Culture=neutral, PublicKeyToken=96d09a1eb7f44a77, processorArchitecture=MSIL">
-      <HintPath>packages\NUnit.2.6.4\lib\nunit.framework.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
@@ -339,7 +322,4 @@
   <Target Name="CleanupRestartFlag" BeforeTargets="BeforeBuild" Condition="Exists('$(RestartFlag)')">
     <Delete Files="$(RestartFlag)" />
   </Target>
-  <ItemGroup>
-    <Reference Remove="Microsoft.VisualBasic" />
-  </ItemGroup>
 </Project>

@@ -298,7 +298,16 @@ namespace WinMemoryCleaner
             if (obj < 1024)
                 return new KeyValuePair<double, Enums.Memory.Unit>(obj, Enums.Memory.Unit.B);
 
-            var mag = (int)Math.Log(obj, 1024);
+            // Determine the unit with integer arithmetic. Math.Log introduces rounding errors
+            // (for example 1 TB was reported as 1023.99999999907 GB).
+            var mag = 0;
+            var bytes = obj;
+
+            while (mag < (int)Enums.Memory.Unit.YB - 1 && bytes >= 1024)
+            {
+                bytes /= 1024;
+                mag++;
+            }
 
             return new KeyValuePair<double, Enums.Memory.Unit>(obj / Math.Pow(1024, mag), (Enums.Memory.Unit)mag);
         }

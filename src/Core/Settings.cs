@@ -4,15 +4,20 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Windows.Input;
 
-#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+#pragma warning disable 1591 // Missing XML comment for publicly visible type or member
 
 namespace WinMemoryCleaner
 {
     public static class Settings
     {
+        private const int SaveDebounceMilliseconds = 500;
+
         private static readonly CultureInfo _culture = new CultureInfo(Constants.Windows.Locale.Name.English);
+        private static readonly object _saveLock = new object();
+        private static Timer _saveTimer;
 
         #region Constructors
 
@@ -236,6 +241,50 @@ namespace WinMemoryCleaner
             Save();
         }
 
+        /// <summary>
+        /// Schedules the settings to be written to the registry.
+        /// Writing the settings is relatively expensive (about 30 registry values), and the
+        /// settings are bound to controls that raise a change for every step of a slider drag.
+        /// The write is therefore delayed and coalesced into a single operation.
+        /// </summary>
+        public static void SaveDebounced()
+        {
+            lock (_saveLock)
+            {
+                if (_saveTimer == null)
+                {
+                    _saveTimer = new Timer(_ => Save(), null, SaveDebounceMilliseconds, Timeout.Infinite);
+                }
+                else
+                {
+                    _saveTimer.Change(SaveDebounceMilliseconds, Timeout.Infinite);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Writes the pending (debounced) settings immediately.
+        /// </summary>
+        public static void Flush()
+        {
+            lock (_saveLock)
+            {
+                if (_saveTimer == null)
+                    return;
+
+                try
+                {
+                    _saveTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                }
+                catch
+                {
+                    // ignored
+                }
+
+                Save();
+            }
+        }
+
         public static void Save()
         {
             try
@@ -302,4 +351,4 @@ namespace WinMemoryCleaner
     }
 }
 
-#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
+#pragma warning restore 1591 // Missing XML comment for publicly visible type or member

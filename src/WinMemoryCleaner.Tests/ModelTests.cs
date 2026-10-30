@@ -1,7 +1,7 @@
 using NUnit.Framework;
 using System;
 
-#pragma warning disable CS1591 // Missing XML comment for publicly visible type or member
+#pragma warning disable 1591 // Missing XML comment for publicly visible type or member
 
 namespace WinMemoryCleaner.Test
 {
@@ -547,6 +547,53 @@ namespace WinMemoryCleaner.Test
 
                 Assert.IsNotNull(stats.Used);
             }
+
+            [Test]
+            public void UsedPercentage_WithDifferentUnitsForUsedAndTotal_IsCalculatedInBytes()
+            {
+                // 1 TB total with 100 GB used. The used value is scaled to GB while the total is
+                // scaled to TB, so a ratio of the scaled values produced a wrong percentage (10000%).
+                const long total = 1099511627776L;      // 1 TB
+                const long used = 107374182400L;        // 100 GB
+                const long free = total - used;
+
+                var stats = new MemoryStats(free, total);
+
+                Assert.AreEqual(9, stats.Used.Percentage);
+                Assert.AreEqual(91, stats.Free.Percentage);
+            }
+
+            [Test]
+            public void UsedPercentage_WithSmallUsedValueAndLargeTotal_IsCalculatedInBytes()
+            {
+                // 16 GB page file with 300 MB used
+                const long total = 17179869184L;         // 16 GB
+                const long used = 314572800L;            // 300 MB
+                const long free = total - used;
+
+                var stats = new MemoryStats(free, total);
+
+                Assert.AreEqual(1, stats.Used.Percentage);
+                Assert.AreEqual(99, stats.Free.Percentage);
+            }
+
+            [Test]
+            public void UsedPercentage_WithEqualFreeAndTotal_IsZero()
+            {
+                var stats = new MemoryStats(8589934592, 8589934592);
+
+                Assert.AreEqual(0, stats.Used.Percentage);
+                Assert.AreEqual(100, stats.Free.Percentage);
+            }
+
+            [Test]
+            public void UsedPercentage_WithOutOfRangeSuppliedValue_IsClamped()
+            {
+                var stats = new MemoryStats(8589934592, 8589934592, 150);
+
+                Assert.AreEqual(100, stats.Used.Percentage);
+                Assert.AreEqual(0, stats.Free.Percentage);
+            }
         }
 
         #endregion
@@ -568,4 +615,4 @@ namespace WinMemoryCleaner.Test
     }
 }
 
-#pragma warning restore CS1591 // Missing XML comment for publicly visible type or member
+#pragma warning restore 1591 // Missing XML comment for publicly visible type or member
